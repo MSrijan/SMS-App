@@ -18,8 +18,7 @@ class _SmsInboxState extends State<SmsInbox> {
   List<SmsMessage> _filteredMessages = [];
   final TextEditingController _filterController = TextEditingController();
   Set<String> _savedFilters = {};
-  Map<String, String> _contactNames =
-      {}; // Map to store phone numbers and their names
+  Map<String, String> _contactNames = {};
 
   @override
   void initState() {
@@ -27,6 +26,7 @@ class _SmsInboxState extends State<SmsInbox> {
     _filterController.addListener(_filterMessages);
     _loadSavedFilters();
     _loadContactNames();
+    _fetchMessages(); // Automatically fetch messages when the app starts
   }
 
   @override
@@ -66,15 +66,47 @@ class _SmsInboxState extends State<SmsInbox> {
     setState(() {});
   }
 
+  Future<void> _fetchMessages() async {
+    var permission = await Permission.sms.status;
+    if (permission.isGranted) {
+      final inboxMessages = await _query.querySms(kinds: [SmsQueryKind.inbox]);
+      final sentMessages = await _query.querySms(kinds: [SmsQueryKind.sent]);
+
+      // Combine inbox and sent messages
+      final combinedMessages = [...inboxMessages, ...sentMessages];
+
+      // Sort messages by date (newest to oldest)
+      combinedMessages.sort((a, b) {
+        if (a.date != null && b.date != null) {
+          return b.date!
+              .compareTo(a.date!); // Reverse order for newest to oldest
+        }
+        return 0; // Handle cases where date might be null (if applicable)
+      });
+
+      setState(() {
+        _messages = combinedMessages;
+        _filterMessages(); // Apply filter after fetching and sorting messages
+      });
+    } else {
+      await Permission.sms.request();
+    }
+  }
+
   void _filterMessages() {
     final filterText = _filterController.text.toLowerCase();
     setState(() {
       _filteredMessages = _messages.where((message) {
-        final sender = message.sender?.toLowerCase() ?? '';
-        final matchesFilterText = sender.contains(filterText);
+        final senderNumber = message.sender?.toLowerCase() ?? '';
+        final senderName = _contactNames[senderNumber]?.toLowerCase() ?? '';
+
+        final matchesFilterText = senderNumber.contains(filterText) ||
+            senderName.contains(filterText);
         final matchesSavedFilters = _savedFilters.isEmpty ||
-            _savedFilters
-                .any((filter) => sender.contains(filter.toLowerCase()));
+            _savedFilters.any((filter) =>
+                senderNumber.contains(filter.toLowerCase()) ||
+                senderName.contains(filter.toLowerCase()));
+
         return matchesFilterText && matchesSavedFilters;
       }).toList();
     });
@@ -155,25 +187,7 @@ class _SmsInboxState extends State<SmsInbox> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          var permission = await Permission.sms.status;
-          if (permission.isGranted) {
-            final messages = await _query.querySms(
-              kinds: [
-                SmsQueryKind.inbox,
-                SmsQueryKind.sent,
-              ],
-              count: 10,
-            );
-            debugPrint('sms inbox messages: ${messages.length}');
-            setState(() {
-              _messages = messages;
-              _filterMessages(); // Apply filter after fetching messages
-            });
-          } else {
-            await Permission.sms.request();
-          }
-        },
+        onPressed: _fetchMessages, // Refresh messages on button press
         child: const Icon(Icons.refresh),
       ),
     );

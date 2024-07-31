@@ -9,11 +9,18 @@ Future<void> loadAllContactNames(Map<String, String> contactNames) async {
   }
 
   if (status.isGranted) {
-    final contacts = await ContactsService.getContacts(withThumbnails: false);
-    for (var contact in contacts) {
-      for (var phone in contact.phones!) {
-        contactNames[phone.value!] = contact.displayName ?? '';
+    try {
+      final contacts = await ContactsService.getContacts(withThumbnails: false);
+      contactNames.clear(); // Clear previous data
+      for (var contact in contacts) {
+        for (var phone in contact.phones ?? []) {
+          if (phone.value != null) {
+            contactNames[phone.value!] = contact.displayName ?? '';
+          }
+        }
       }
+    } catch (e) {
+      print('Error loading contacts: $e');
     }
   }
 }
