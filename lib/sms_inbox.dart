@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:contacts_service/contacts_service.dart';
 import 'messages_list_view.dart';
 import 'contacts_service.dart';
 
