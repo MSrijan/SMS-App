@@ -2,8 +2,6 @@
     package="com.example.sms_app">
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
     <uses-permission android:name="android.permission.READ_SMS"/>
-    <uses-permission android:name="android.permission.READ_CONTACTS" />  
-    <uses-permission android:name="android.permission.WRITE_CONTACTS" />  
     <application
         android:label="MySMS"
         android:name="${applicationName}"

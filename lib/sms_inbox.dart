@@ -3,7 +3,6 @@ import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'messages_list_view.dart';
-import 'contacts_service.dart';
 
 class SmsInbox extends StatefulWidget {
   const SmsInbox({Key? key}) : super(key: key);
@@ -25,7 +24,6 @@ class _SmsInboxState extends State<SmsInbox> {
     super.initState();
     _filterController.addListener(_filterMessages);
     _loadSavedFilters();
-    _loadContactNames();
     _fetchMessages(); // Automatically fetch messages when the app starts
   }
 
@@ -61,22 +59,13 @@ class _SmsInboxState extends State<SmsInbox> {
     _filterMessages();
   }
 
-  Future<void> _loadContactNames() async {
-    await loadAllContactNames(_contactNames);
-    setState(() {});
-  }
-
   Future<void> _fetchMessages() async {
     var permission = await Permission.sms.status;
     if (permission.isGranted) {
       final inboxMessages = await _query.querySms(kinds: [SmsQueryKind.inbox]);
-      final sentMessages = await _query.querySms(kinds: [SmsQueryKind.sent]);
-
-      // Combine inbox and sent messages
-      final combinedMessages = [...inboxMessages, ...sentMessages];
 
       // Sort messages by date (newest to oldest)
-      combinedMessages.sort((a, b) {
+      inboxMessages.sort((a, b) {
         if (a.date != null && b.date != null) {
           return b.date!
               .compareTo(a.date!); // Reverse order for newest to oldest
@@ -85,7 +74,7 @@ class _SmsInboxState extends State<SmsInbox> {
       });
 
       setState(() {
-        _messages = combinedMessages;
+        _messages = inboxMessages;
         _filterMessages(); // Apply filter after fetching and sorting messages
       });
     } else {
@@ -99,13 +88,16 @@ class _SmsInboxState extends State<SmsInbox> {
       _filteredMessages = _messages.where((message) {
         final senderNumber = message.sender?.toLowerCase() ?? '';
         final senderName = _contactNames[senderNumber]?.toLowerCase() ?? '';
+        final messageContent = message.body?.toLowerCase() ?? '';
 
         final matchesFilterText = senderNumber.contains(filterText) ||
-            senderName.contains(filterText);
+            senderName.contains(filterText) ||
+            messageContent.contains(filterText);
         final matchesSavedFilters = _savedFilters.isEmpty ||
             _savedFilters.any((filter) =>
                 senderNumber.contains(filter.toLowerCase()) ||
-                senderName.contains(filter.toLowerCase()));
+                senderName.contains(filter.toLowerCase())) ||
+            messageContent.contains(filterText);
 
         return matchesFilterText && matchesSavedFilters;
       }).toList();
@@ -116,7 +108,7 @@ class _SmsInboxState extends State<SmsInbox> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SMS Inbox'),
+        title: const Text('Transaction'),
       ),
       body: Column(
         children: [
