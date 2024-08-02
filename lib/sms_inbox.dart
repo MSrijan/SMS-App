@@ -24,7 +24,7 @@ class _SmsInboxState extends State<SmsInbox> {
     super.initState();
     _filterController.addListener(_filterMessages);
     _loadSavedFilters();
-    _fetchMessages(); // Automatically fetch messages when the app starts
+    _fetchMessages();
   }
 
   @override
@@ -38,7 +38,7 @@ class _SmsInboxState extends State<SmsInbox> {
     setState(() {
       _savedFilters = prefs.getStringList('savedFilters')?.toSet() ?? {};
     });
-    _filterMessages();
+    _filterMessages(); // Apply saved filters on load
   }
 
   Future<void> _saveFilter(String filter) async {
@@ -56,7 +56,7 @@ class _SmsInboxState extends State<SmsInbox> {
       _savedFilters.remove(filter);
       prefs.setStringList('savedFilters', _savedFilters.toList());
     });
-    _filterMessages();
+    _filterMessages(); // Apply filters after removing
   }
 
   Future<void> _fetchMessages() async {
@@ -67,15 +67,14 @@ class _SmsInboxState extends State<SmsInbox> {
       // Sort messages by date (newest to oldest)
       inboxMessages.sort((a, b) {
         if (a.date != null && b.date != null) {
-          return b.date!
-              .compareTo(a.date!); // Reverse order for newest to oldest
+          return b.date!.compareTo(a.date!);
         }
-        return 0; // Handle cases where date might be null (if applicable)
+        return 0;
       });
 
       setState(() {
         _messages = inboxMessages;
-        _filterMessages(); // Apply filter after fetching and sorting messages
+        _filterMessages(); // Apply filters after fetching
       });
     } else {
       await Permission.sms.request();
@@ -86,9 +85,25 @@ class _SmsInboxState extends State<SmsInbox> {
     final filterText = _filterController.text.toLowerCase();
     setState(() {
       _filteredMessages = _messages.where((message) {
+        final messageContent = message.body?.toLowerCase() ?? '';
+
+        final relevantKeywords = [
+          'customer',
+          'deposited',
+          'credited',
+          'withdrawn',
+          'debited'
+        ];
+
+        final matchesRelevantKeywords =
+            relevantKeywords.any((keyword) => messageContent.contains(keyword));
+
+        if (!matchesRelevantKeywords) {
+          return false;
+        }
+
         final senderNumber = message.sender?.toLowerCase() ?? '';
         final senderName = _contactNames[senderNumber]?.toLowerCase() ?? '';
-        final messageContent = message.body?.toLowerCase() ?? '';
 
         final matchesFilterText = senderNumber.contains(filterText) ||
             senderName.contains(filterText) ||
@@ -97,9 +112,31 @@ class _SmsInboxState extends State<SmsInbox> {
             _savedFilters.any((filter) =>
                 senderNumber.contains(filter.toLowerCase()) ||
                 senderName.contains(filter.toLowerCase())) ||
-            messageContent.contains(filterText);
+            messageContent.contains(filterText.toLowerCase());
 
         return matchesFilterText && matchesSavedFilters;
+      }).toList();
+    });
+  }
+
+  void _filterDebit() {
+    final filterDebitText = _filterController.text.toLowerCase();
+    setState(() {
+      _filteredMessages = _filteredMessages.where((message) {
+        final messageContent = message.body?.toLowerCase() ?? '';
+        return messageContent.contains("deposited") ||
+            messageContent.contains("debited");
+      }).toList();
+    });
+  }
+
+  void _filterCredit() {
+    final filterCreditText = _filterController.text.toLowerCase();
+    setState(() {
+      _filteredMessages = _filteredMessages.where((message) {
+        final messageContent = message.body?.toLowerCase() ?? '';
+        return messageContent.contains("withdrawn") ||
+            messageContent.contains("credited");
       }).toList();
     });
   }
@@ -147,6 +184,21 @@ class _SmsInboxState extends State<SmsInbox> {
                 ),
               ],
             ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              FilledButton(
+                  onPressed: () {
+                    _filterCredit(); // Apply filter for credit transactions
+                  },
+                  child: Text('Withdrawn')),
+              FilledButton(
+                  onPressed: () {
+                    _filterDebit(); // Apply filter for debit transactions
+                  },
+                  child: Text('Received')),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10.0),

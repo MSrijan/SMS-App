@@ -17,11 +17,11 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.cyan,
         primaryColor: Color.fromARGB(255, 197, 197, 197),
-        scaffoldBackgroundColor: Color.fromARGB(255, 228, 228, 228),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color.fromARGB(255, 94, 169, 179),
-          foregroundColor: Colors.white, // Text color in the AppBar
-        ),
+        scaffoldBackgroundColor: Color.fromARGB(255, 236, 236, 236),
+        // appBarTheme: const AppBarTheme(
+        //   backgroundColor: Color.fromARGB(255, 94, 169, 179),
+        //   foregroundColor: Colors.white, // Text color in the AppBar
+        // ),
       ),
       home: const MainNavigation(),
     );
