@@ -18,7 +18,7 @@ class ProfilePage extends StatelessWidget {
         child: Text('This is the Profile Page.'),
       ),
       floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.edit),
+        child: const Icon(Icons.edit),
         onPressed: () {
           _onEditPressed(context);
         },

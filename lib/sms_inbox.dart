@@ -17,7 +17,7 @@ class _SmsInboxState extends State<SmsInbox> {
   List<SmsMessage> _filteredMessages = [];
   final TextEditingController _filterController = TextEditingController();
   Set<String> _savedFilters = {};
-  Map<String, String> _contactNames = {};
+  final Map<String, String> _contactNames = {};
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _SmsInboxState extends State<SmsInbox> {
     setState(() {
       _savedFilters = prefs.getStringList('savedFilters')?.toSet() ?? {};
     });
-    _filterMessages(); // Apply saved filters on load
+    _filterMessages();
   }
 
   Future<void> _saveFilter(String filter) async {
@@ -47,7 +47,7 @@ class _SmsInboxState extends State<SmsInbox> {
       _savedFilters.add(filter);
       prefs.setStringList('savedFilters', _savedFilters.toList());
     });
-    _filterMessages(); // Apply filters after saving
+    _filterMessages();
   }
 
   Future<void> _removeFilter(String filter) async {
@@ -56,7 +56,7 @@ class _SmsInboxState extends State<SmsInbox> {
       _savedFilters.remove(filter);
       prefs.setStringList('savedFilters', _savedFilters.toList());
     });
-    _filterMessages(); // Apply filters after removing
+    _filterMessages();
   }
 
   Future<void> _fetchMessages() async {
@@ -64,7 +64,6 @@ class _SmsInboxState extends State<SmsInbox> {
     if (permission.isGranted) {
       final inboxMessages = await _query.querySms(kinds: [SmsQueryKind.inbox]);
 
-      // Sort messages by date (newest to oldest)
       inboxMessages.sort((a, b) {
         if (a.date != null && b.date != null) {
           return b.date!.compareTo(a.date!);
@@ -74,7 +73,7 @@ class _SmsInboxState extends State<SmsInbox> {
 
       setState(() {
         _messages = inboxMessages;
-        _filterMessages(); // Apply filters after fetching
+        _filterMessages();
       });
     } else {
       await Permission.sms.request();
@@ -94,32 +93,37 @@ class _SmsInboxState extends State<SmsInbox> {
           'withdrawn',
           'debited'
         ];
-
         final matchesRelevantKeywords =
             relevantKeywords.any((keyword) => messageContent.contains(keyword));
-
         if (!matchesRelevantKeywords) {
           return false;
         }
 
         final senderNumber = message.sender?.toLowerCase() ?? '';
+        if (senderNumber == 'ncell' ||
+            senderNumber == '1415' ||
+            senderNumber == 'pathao' ||
+            senderNumber == 'at_alert') {
+          return false;
+        }
         final senderName = _contactNames[senderNumber]?.toLowerCase() ?? '';
-
-        final matchesFilterText = senderNumber.contains(filterText) ||
+        final matchesFilterText = filterText.isEmpty ||
+            senderNumber.contains(filterText) ||
             senderName.contains(filterText) ||
             messageContent.contains(filterText);
         final matchesSavedFilters = _savedFilters.isEmpty ||
             _savedFilters.any((filter) =>
                 senderNumber.contains(filter.toLowerCase()) ||
-                senderName.contains(filter.toLowerCase())) ||
-            messageContent.contains(filterText.toLowerCase());
+                senderName.contains(filter.toLowerCase()) ||
+                messageContent.contains(filter.toLowerCase()));
 
         return matchesFilterText && matchesSavedFilters;
       }).toList();
     });
   }
 
-  void _filterDebit() {
+  void _filterDebit() async {
+    await _fetchMessages();
     final filterDebitText = _filterController.text.toLowerCase();
     setState(() {
       _filteredMessages = _filteredMessages.where((message) {
@@ -130,7 +134,8 @@ class _SmsInboxState extends State<SmsInbox> {
     });
   }
 
-  void _filterCredit() {
+  void _filterCredit() async {
+    await _fetchMessages();
     final filterCreditText = _filterController.text.toLowerCase();
     setState(() {
       _filteredMessages = _filteredMessages.where((message) {
@@ -190,14 +195,14 @@ class _SmsInboxState extends State<SmsInbox> {
             children: [
               FilledButton(
                   onPressed: () {
-                    _filterCredit(); // Apply filter for credit transactions
+                    _filterCredit();
                   },
-                  child: Text('Withdrawn')),
+                  child: const Text('Withdrawn')),
               FilledButton(
                   onPressed: () {
-                    _filterDebit(); // Apply filter for debit transactions
+                    _filterDebit();
                   },
-                  child: Text('Received')),
+                  child: const Text('Received')),
             ],
           ),
           Padding(
@@ -231,7 +236,7 @@ class _SmsInboxState extends State<SmsInbox> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _fetchMessages, // Refresh messages on button press
+        onPressed: _fetchMessages,
         child: const Icon(Icons.refresh),
       ),
     );

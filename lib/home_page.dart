@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'messages_list_view.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'main.dart'; // Make sure to import main.dart to access the GlobalKey
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,7 +14,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final SmsQuery _query = SmsQuery();
   List<SmsMessage> _messages = [];
-  Map<String, String> _contactNames = {};
+  final Map<String, String> _contactNames = {};
 
   @override
   void initState() {
@@ -69,19 +70,21 @@ class _HomePageState extends State<HomePage> {
           Top(context),
           // balance part
           Balance(),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "Recent Transaction",
+                const Text(
+                  "Recent Transactions ",
                   style: TextStyle(fontSize: 18),
                 ),
-                Text(
-                  "View All >",
-                  style: TextStyle(fontSize: 14),
-                )
+                TextButton(
+                  onPressed: () {
+                    mainNavKey.currentState?.onDestinationSelected(1);
+                  },
+                  child: const Text("View All"),
+                ),
               ],
             ),
           ),
@@ -139,9 +142,9 @@ class _HomePageState extends State<HomePage> {
   Container Top(BuildContext context) {
     return Container(
       height: 111.0,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+      padding: const EdgeInsets.fromLTRB(10, 35, 10, 10),
       decoration: const BoxDecoration(
-          color: Color.fromARGB(255, 94, 169, 179),
+          color: Color.fromARGB(255, 217, 192, 233),
           borderRadius: BorderRadius.only(
               bottomRight: Radius.circular(26),
               bottomLeft: Radius.circular(26))),
@@ -152,7 +155,9 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               IconButton(
-                onPressed: () {},
+                onPressed: () {
+                  mainNavKey.currentState?.onDestinationSelected(2);
+                },
                 iconSize: 50,
                 icon: const Icon(Icons.account_circle_rounded,
                     color: Colors.white),

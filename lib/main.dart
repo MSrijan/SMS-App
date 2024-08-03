@@ -3,6 +3,9 @@ import 'home_page.dart';
 import 'profile_page.dart';
 import 'transactions_page.dart';
 
+final GlobalKey<_MainNavigationState> mainNavKey =
+    GlobalKey<_MainNavigationState>();
+
 void main() {
   runApp(const MyApp());
 }
@@ -16,14 +19,10 @@ class MyApp extends StatelessWidget {
       title: 'MySMS',
       theme: ThemeData(
         primarySwatch: Colors.cyan,
-        primaryColor: Color.fromARGB(255, 197, 197, 197),
-        scaffoldBackgroundColor: Color.fromARGB(255, 236, 236, 236),
-        // appBarTheme: const AppBarTheme(
-        //   backgroundColor: Color.fromARGB(255, 94, 169, 179),
-        //   foregroundColor: Colors.white, // Text color in the AppBar
-        // ),
+        primaryColor: const Color.fromARGB(255, 197, 197, 197),
+        scaffoldBackgroundColor: const Color.fromARGB(255, 236, 236, 236),
       ),
-      home: const MainNavigation(),
+      home: MainNavigation(key: mainNavKey),
     );
   }
 }
@@ -44,7 +43,7 @@ class _MainNavigationState extends State<MainNavigation> {
     const ProfilePage(),
   ];
 
-  void _onDestinationSelected(int index) {
+  void onDestinationSelected(int index) {
     setState(() {
       _currentPage = index;
     });
@@ -56,13 +55,13 @@ class _MainNavigationState extends State<MainNavigation> {
       body: _pages[_currentPage],
       bottomNavigationBar: NavigationBar(
         backgroundColor: Colors.white,
-        onDestinationSelected: _onDestinationSelected,
+        onDestinationSelected: onDestinationSelected,
         selectedIndex: _currentPage,
         destinations: const <Widget>[
           NavigationDestination(
             selectedIcon: Icon(
               Icons.home,
-              color: Color.fromARGB(255, 94, 169, 179),
+              color: Color.fromARGB(255, 217, 192, 233),
             ),
             icon: Icon(Icons.home_outlined),
             label: 'Home',
@@ -70,7 +69,7 @@ class _MainNavigationState extends State<MainNavigation> {
           NavigationDestination(
             selectedIcon: Icon(
               Icons.currency_exchange_outlined,
-              color: Color.fromARGB(255, 94, 169, 179),
+              color: Color.fromARGB(255, 217, 192, 233),
             ),
             icon: Icon(Icons.currency_exchange),
             label: 'Transactions',
@@ -78,7 +77,7 @@ class _MainNavigationState extends State<MainNavigation> {
           NavigationDestination(
             selectedIcon: Icon(
               Icons.account_circle_rounded,
-              color: Color.fromARGB(255, 94, 169, 179),
+              color: Color.fromARGB(255, 217, 192, 233),
             ),
             icon: Icon(
               Icons.account_circle_outlined,

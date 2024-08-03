@@ -11,7 +11,6 @@ class MessagesListView extends StatelessWidget {
   final List<SmsMessage> messages;
   final Map<String, String> contactNames;
 
-  // Function to extract date from message body
   String extractDateFromMessage(String messageBody) {
     final List<RegExp> datePatterns = [
       RegExp(r'\b\d{2}/\d{2}/\d{4} \d{2}:\d{2}\b'), // dd/MM/yyyy HH:mm
@@ -35,20 +34,14 @@ class MessagesListView extends StatelessWidget {
   }
 
   String extractRemarksFromMessage(String messageBody) {
-    // Normalize the message body to lower case for easier comparison
     final lowerCaseMessageBody = messageBody.toLowerCase();
 
-    // Check if the body contains "deposited" or "withdrawn"
     if (lowerCaseMessageBody.contains('deposited') ||
         lowerCaseMessageBody.contains('withdrawn')) {
-      // Check for "Remarks:" keyword
       if (lowerCaseMessageBody.contains('remarks:')) {
-        final startIndex = messageBody.indexOf('Remarks:') +
-            'Remarks:'.length; // Start after "Remarks: "
-        final endIndex = messageBody.indexOf(
-            'Activate', startIndex); // Find "Activate" keyword
+        final startIndex = messageBody.indexOf('Remarks:') + 'Remarks:'.length;
+        final endIndex = messageBody.indexOf('Activate', startIndex);
 
-        // Extract text between startIndex and endIndex (if "Activate" is found), otherwise till the end
         if (endIndex != -1) {
           return messageBody.substring(startIndex, endIndex).trim();
         } else {
@@ -56,14 +49,10 @@ class MessagesListView extends StatelessWidget {
         }
       }
 
-      // Check for "Re:" keyword if "Remarks:" is not found
       if (lowerCaseMessageBody.contains('re:')) {
-        final startIndex =
-            messageBody.indexOf('Re:') + 'Re:'.length; // Start after "Re: "
-        final endIndex = messageBody.indexOf(
-            'Activate', startIndex); // Find "Activate" keyword
+        final startIndex = messageBody.indexOf('Re:') + 'Re:'.length;
+        final endIndex = messageBody.indexOf('Activate', startIndex);
 
-        // Extract text between startIndex and endIndex (if "Activate" is found), otherwise till the end
         if (endIndex != -1) {
           return messageBody.substring(startIndex, endIndex).trim();
         } else {
@@ -74,7 +63,6 @@ class MessagesListView extends StatelessWidget {
     return '';
   }
 
-  // Function to extract amount from message body based on provided templates
   String extractAmountFromMessage(String messageBody) {
     final RegExp amountPattern = RegExp(r'\bNPR\s*[\d,]+(?:\.\d{1,2})?\b');
     final match = amountPattern.firstMatch(messageBody);
@@ -122,7 +110,7 @@ class MessagesListView extends StatelessWidget {
 
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 5, 16, 5),
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -132,10 +120,15 @@ class MessagesListView extends StatelessWidget {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    remarksFromBody.isNotEmpty ? remarksFromBody : 'No Remarks',
-                    style: const TextStyle(fontSize: 16),
+                  Flexible(
+                    child: Text(
+                      remarksFromBody.isNotEmpty
+                          ? remarksFromBody
+                          : 'No Remarks',
+                      style: const TextStyle(fontSize: 16),
+                    ),
                   ),
                   Text(
                     amountFromBody.isNotEmpty ? amountFromBody : 'N/A',
