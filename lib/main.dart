@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'profile_page.dart';
-import 'transactions_page.dart';
+import 'sms_inbox.dart';
 
 final GlobalKey<_MainNavigationState> mainNavKey =
     GlobalKey<_MainNavigationState>();
@@ -38,14 +38,20 @@ class _MainNavigationState extends State<MainNavigation> {
   int _currentPage = 0;
 
   final List<Widget> _pages = [
-    const HomePage(),
-    const TransactionsPage(),
+    HomePage(),
+    SmsInbox(),
     const ProfilePage(),
   ];
 
   void onDestinationSelected(int index) {
     setState(() {
       _currentPage = index;
+    });
+  }
+
+  void navigateToPage(int pageIndex) {
+    setState(() {
+      _currentPage = pageIndex;
     });
   }
 

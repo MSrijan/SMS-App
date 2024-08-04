@@ -1,62 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'messages_list_view.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class SmsInbox extends StatefulWidget {
-  const SmsInbox({Key? key}) : super(key: key);
+  final String? selectedBank;
+
+  SmsInbox({Key? key, this.selectedBank}) : super(key: key);
 
   @override
-  State<SmsInbox> createState() => _SmsInboxState();
+  _SmsInboxState createState() => _SmsInboxState();
 }
 
 class _SmsInboxState extends State<SmsInbox> {
-  final SmsQuery _query = SmsQuery();
   List<SmsMessage> _messages = [];
-  List<SmsMessage> _filteredMessages = [];
-  final TextEditingController _filterController = TextEditingController();
-  Set<String> _savedFilters = {};
-  final Map<String, String> _contactNames = {};
+  final SmsQuery _query = SmsQuery();
+  String _filter = 'all';
+  DateTimeRange? _selectedDateRange;
 
   @override
   void initState() {
     super.initState();
-    _filterController.addListener(_filterMessages);
-    _loadSavedFilters();
+    print('Selected Bank in SmsInbox: ${widget.selectedBank}');
     _fetchMessages();
-  }
-
-  @override
-  void dispose() {
-    _filterController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadSavedFilters() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _savedFilters = prefs.getStringList('savedFilters')?.toSet() ?? {};
-    });
-    _filterMessages();
-  }
-
-  Future<void> _saveFilter(String filter) async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _savedFilters.add(filter);
-      prefs.setStringList('savedFilters', _savedFilters.toList());
-    });
-    _filterMessages();
-  }
-
-  Future<void> _removeFilter(String filter) async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _savedFilters.remove(filter);
-      prefs.setStringList('savedFilters', _savedFilters.toList());
-    });
-    _filterMessages();
   }
 
   Future<void> _fetchMessages() async {
@@ -64,181 +30,191 @@ class _SmsInboxState extends State<SmsInbox> {
     if (permission.isGranted) {
       final inboxMessages = await _query.querySms(kinds: [SmsQueryKind.inbox]);
 
-      inboxMessages.sort((a, b) {
-        if (a.date != null && b.date != null) {
-          return b.date!.compareTo(a.date!);
-        }
-        return 0;
-      });
+      print('Selected Bank: ${widget.selectedBank}');
+      print('Total Messages: ${inboxMessages.length}');
+
+      final Map<String, String> bankSenders = {
+        'Nabil Bank': 'Nabil_Alert',
+        'Sanima Bank': 'SanimaBank',
+      };
+
+      final filteredMessages = inboxMessages.where((message) {
+        final body = message.body?.toLowerCase() ?? '';
+        final sender = message.sender?.toLowerCase() ?? '';
+        final messageDate = message.date ?? DateTime.now();
+
+        bool matchesBank = widget.selectedBank == null ||
+            (sender.contains(
+                bankSenders[widget.selectedBank]?.toLowerCase() ?? ''));
+
+        bool matchesType = _filter == 'all' ||
+            (_filter == 'withdrawn' && _matchesWithdrawn(body)) ||
+            (_filter == 'deposited' && _matchesDeposited(body));
+
+        bool matchesDateRange = _selectedDateRange == null ||
+            (_selectedDateRange!.start.isBefore(messageDate) &&
+                _selectedDateRange!.end.isAfter(messageDate));
+
+        return (body.contains('withdrawn') ||
+                body.contains('deposited') ||
+                body.contains('credited') ||
+                body.contains('debited')) &&
+            matchesBank &&
+            matchesType &&
+            matchesDateRange;
+      }).toList();
+
+      print('Filtered Messages: ${filteredMessages.length}');
 
       setState(() {
-        _messages = inboxMessages;
-        _filterMessages();
+        _messages = filteredMessages;
       });
     } else {
       await Permission.sms.request();
     }
   }
 
-  void _filterMessages() {
-    final filterText = _filterController.text.toLowerCase();
+  void _setDateRange(DateTimeRange? dateRange) {
     setState(() {
-      _filteredMessages = _messages.where((message) {
-        final messageContent = message.body?.toLowerCase() ?? '';
-
-        final relevantKeywords = [
-          'customer',
-          'deposited',
-          'credited',
-          'withdrawn',
-          'debited'
-        ];
-        final matchesRelevantKeywords =
-            relevantKeywords.any((keyword) => messageContent.contains(keyword));
-        if (!matchesRelevantKeywords) {
-          return false;
-        }
-
-        final senderNumber = message.sender?.toLowerCase() ?? '';
-        if (senderNumber == 'ncell' ||
-            senderNumber == '1415' ||
-            senderNumber == 'pathao' ||
-            senderNumber == 'at_alert') {
-          return false;
-        }
-        final senderName = _contactNames[senderNumber]?.toLowerCase() ?? '';
-        final matchesFilterText = filterText.isEmpty ||
-            senderNumber.contains(filterText) ||
-            senderName.contains(filterText) ||
-            messageContent.contains(filterText);
-        final matchesSavedFilters = _savedFilters.isEmpty ||
-            _savedFilters.any((filter) =>
-                senderNumber.contains(filter.toLowerCase()) ||
-                senderName.contains(filter.toLowerCase()) ||
-                messageContent.contains(filter.toLowerCase()));
-
-        return matchesFilterText && matchesSavedFilters;
-      }).toList();
+      _selectedDateRange = dateRange;
+      _fetchMessages();
     });
   }
 
-  void _filterDebit() async {
-    await _fetchMessages();
-    final filterDebitText = _filterController.text.toLowerCase();
+  Future<void> _selectDateRange() async {
+    final DateTime now = DateTime.now();
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
+      initialDateRange: _selectedDateRange,
+    );
+
+    if (picked != null && picked != _selectedDateRange) {
+      _setDateRange(picked);
+    }
+  }
+
+  bool _matchesWithdrawn(String body) {
+    final RegExp withdrawnPattern =
+        RegExp(r'\b(withdrawn|db|debit|debit\w*)\b', caseSensitive: false);
+    return withdrawnPattern.hasMatch(body);
+  }
+
+  bool _matchesDeposited(String body) {
+    final RegExp depositedPattern =
+        RegExp(r'\b(deposited|credit|credit\w*)\b', caseSensitive: false);
+    return depositedPattern.hasMatch(body);
+  }
+
+  void _setFilter(String filter) {
+    print('Setting filter to: $filter');
     setState(() {
-      _filteredMessages = _filteredMessages.where((message) {
-        final messageContent = message.body?.toLowerCase() ?? '';
-        return messageContent.contains("deposited") ||
-            messageContent.contains("debited");
-      }).toList();
+      _filter = filter;
+      _fetchMessages();
     });
   }
 
-  void _filterCredit() async {
-    await _fetchMessages();
-    final filterCreditText = _filterController.text.toLowerCase();
-    setState(() {
-      _filteredMessages = _filteredMessages.where((message) {
-        final messageContent = message.body?.toLowerCase() ?? '';
-        return messageContent.contains("withdrawn") ||
-            messageContent.contains("credited");
-      }).toList();
-    });
+  ElevatedButton _buildFilterButton(String filter, String label) {
+    final bool isSelected = _filter == filter;
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        primary: isSelected
+            ? Color.fromARGB(255, 238, 213, 241)
+            : Color.fromARGB(255, 196, 196, 196),
+        onPrimary: Colors.white,
+        elevation: isSelected ? 8 : 2,
+      ),
+      onPressed: () {
+        print('Button pressed: $label');
+        _setFilter(filter);
+      },
+      child: Text(label),
+    );
+  }
+
+  // Group messages by date
+  Map<DateTime, List<SmsMessage>> _groupMessagesByDate(
+      List<SmsMessage> messages) {
+    final Map<DateTime, List<SmsMessage>> groupedMessages = {};
+
+    for (var message in messages) {
+      final messageDate = message.date ?? DateTime.now();
+      final formattedDate =
+          DateTime(messageDate.year, messageDate.month, messageDate.day);
+
+      if (groupedMessages.containsKey(formattedDate)) {
+        groupedMessages[formattedDate]!.add(message);
+      } else {
+        groupedMessages[formattedDate] = [message];
+      }
+    }
+
+    return groupedMessages;
   }
 
   @override
   Widget build(BuildContext context) {
+    final groupedMessages = _groupMessagesByDate(_messages);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transaction'),
-      ),
+      appBar: AppBar(title: const Text('Transactions')),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _filterController,
-                    decoration: InputDecoration(
-                      labelText: 'Filter by sender',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          vertical: 10.0, horizontal: 20.0),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    final filterText = _filterController.text;
-                    if (filterText.isNotEmpty) {
-                      _saveFilter(filterText);
-                      _filterController.clear();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: const Text('Add'),
-                ),
-              ],
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          ButtonBar(
+            alignment: MainAxisAlignment.center,
             children: [
-              FilledButton(
-                  onPressed: () {
-                    _filterCredit();
-                  },
-                  child: const Text('Withdrawn')),
-              FilledButton(
-                  onPressed: () {
-                    _filterDebit();
-                  },
-                  child: const Text('Received')),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildFilterButton('all', 'All'),
+                  _buildFilterButton('withdrawn', 'Withdrawn'),
+                  _buildFilterButton('deposited', 'Deposited'),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: _selectDateRange,
+                child: Text(_selectedDateRange == null
+                    ? 'Select Date Range'
+                    : 'Selected: ${_selectedDateRange!.start.toLocal().toShortDateString()} - ${_selectedDateRange!.end.toLocal().toShortDateString()}'),
+              ),
             ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0),
-            child: Wrap(
-              spacing: 6.0,
-              runSpacing: 6.0,
-              children: _savedFilters.map((filter) {
-                return Chip(
-                  label: Text(filter),
-                  deleteIcon: const Icon(Icons.close),
-                  onDeleted: () {
-                    _removeFilter(filter);
-                  },
-                );
-              }).toList(),
-            ),
-          ),
           Expanded(
-            child: _filteredMessages.isNotEmpty
+            child: groupedMessages.isNotEmpty
                 ? MessagesListView(
-                    messages: _filteredMessages, contactNames: _contactNames)
-                : Center(
-                    child: Text(
-                      'No messages to show.\nTap refresh button...',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+                    messagesGroupedByDate: groupedMessages,
+                    contactNames: {},
+                  )
+                : const Center(child: Text('No messages to show')),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _fetchMessages,
-        child: const Icon(Icons.refresh),
-      ),
     );
+  }
+}
+
+// Extension should be placed outside the class definition
+extension DateFormatting on DateTime {
+  String toShortDateString() {
+    return '${this.day} ${_monthName(this.month)} ${this.year}';
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
   }
 }
